@@ -142,7 +142,7 @@ export function buildUserContent({ prompt, contextText }) {
 }
 
 export const CONTINUATION_GUIDANCE =
-  "**Continuing the conversation:** write your follow-up in a new block under this answer, focus it, and run Roam Discover Superintelligence: Ask AI again. Select any earlier blocks to include them as context.";
+  "**Continuing the conversation:** write your follow-up in a new block under this answer, focus it, and run Roam and Discover Superintelligence: Ask AI again. Select any earlier blocks to include them as context.";
 
 export function frameResponse({ providerLabel, model, body }) {
   const header = `Answered by ${providerLabel} (\`${model}\`)`;

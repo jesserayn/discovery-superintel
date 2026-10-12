@@ -22,7 +22,7 @@ function requireApiKey(provider, apiKey) {
   if (apiKey) return;
   const label = PROVIDER_LABELS[provider] || provider;
   throw new Error(
-    `Missing ${label} API key. Add it under Roam Settings > Extensions > Roam Discover Superintelligence.`,
+    `Missing ${label} API key. Add it under Roam Settings > Extensions > Roam and Discover Superintelligence.`,
   );
 }
 
