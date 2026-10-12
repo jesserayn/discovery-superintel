@@ -1,21 +1,24 @@
 {
-  "name": "roam-depot-example",
+  "name": "jesse-roam-ai",
   "version": "1.0.0",
-  "description": "Roam Research Plugin Example",
+  "description": "Ask AI in Roam Research with Grok, Claude, or Muse",
   "main": "index.js",
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch",
+    "test": "node --test",
     "version:major": "npm version major",
     "version:minor": "npm version minor",
     "version:patch": "npm version patch"
   },
   "license": "MIT",
-  "author": "Matt Vogel",
+  "author": "Jesse Nichols",
   "devDependencies": {
     "webpack": "^5.73.0",
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "openai": "^7.32.0"
   }
 }

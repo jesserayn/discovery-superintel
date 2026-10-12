@@ -1,3 +1,5 @@
+const webpack = require("webpack");
+
 module.exports = {
     externals: {
         react: "React",
@@ -15,5 +17,11 @@ module.exports = {
     experiments: {
         outputModule: true,
     },
+    optimization: {
+        splitChunks: false,
+    },
+    plugins: [
+        new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
+    ],
     mode: "production",
 };
