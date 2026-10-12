@@ -140,3 +140,11 @@ export function buildUserContent({ prompt, contextText }) {
   if (!context) return question;
   return `Context:\n${context}\n\nRequest:\n${question}`;
 }
+
+export const CONTINUATION_GUIDANCE =
+  "**Continuing the conversation:** write your follow-up in a new block under this answer, focus it, and run Jesse Roam AI: Ask AI again. Select any earlier blocks to include them as context.";
+
+export function frameResponse({ providerLabel, model, body }) {
+  const header = `Answered by ${providerLabel} (\`${model}\`)`;
+  return `${header}\n\n${String(body || "").trim()}\n\n---\n${CONTINUATION_GUIDANCE}`;
+}

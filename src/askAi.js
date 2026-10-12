@@ -1,6 +1,6 @@
 import { getAskContext } from "./context.js";
-import { streamCompletion } from "./providers.js";
-import { buildUserContent, markdownToRoamBlocks } from "./text.mjs";
+import { PROVIDER_LABELS, streamCompletion } from "./providers.js";
+import { buildUserContent, frameResponse, markdownToRoamBlocks } from "./text.mjs";
 
 const STREAM_UPDATE_MS = 250;
 let isRunning = false;
@@ -79,7 +79,12 @@ export async function askAI(getSettings) {
     }
 
     await pendingUpdate;
-    await writeFinalResponse(promptUid, targetUid, fullText);
+    const framed = frameResponse({
+      providerLabel: PROVIDER_LABELS[settings.provider] || settings.provider,
+      model: settings.model,
+      body: fullText,
+    });
+    await writeFinalResponse(promptUid, targetUid, framed);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("Jesse Roam AI failed", error);

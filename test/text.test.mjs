@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   buildUserContent,
+  CONTINUATION_GUIDANCE,
+  frameResponse,
   markdownToRoamBlocks,
   splitParagraphs,
 } from "../src/text.mjs";
@@ -72,6 +74,25 @@ test("markdownToRoamBlocks joins wrapped lines and strips dash bullets", () => {
       (block) => block.string,
     ),
     ["First line second line", "one", "two"],
+  );
+});
+
+test("frameResponse leads with the model and ends with guidance", () => {
+  const framed = frameResponse({
+    providerLabel: "Grok",
+    model: "grok-4.7",
+    body: "Answer body.",
+  });
+  assert.ok(framed.startsWith("Answered by Grok (`grok-4.7`)"));
+  assert.ok(framed.endsWith(CONTINUATION_GUIDANCE));
+
+  const blocks = markdownToRoamBlocks(framed);
+  assert.equal(blocks[0].string, "Answered by Grok (`grok-4.7`)");
+  assert.equal(blocks[1].string, "Answer body.");
+  assert.equal(blocks[blocks.length - 1].string, CONTINUATION_GUIDANCE);
+  assert.ok(
+    blocks.every((block) => block.string.trim() !== "---"),
+    "separator rule produces no block",
   );
 });
 
