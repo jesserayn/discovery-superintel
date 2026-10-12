@@ -49,7 +49,7 @@ export async function askAI(getSettings) {
 
   if (!promptUid || !prompt) {
     window.alert(
-      "Jesse Roam AI: focus a block containing your request, optionally select context blocks, then run Ask AI again.",
+      "Roam Discover Superintelligence: focus a block containing your request, optionally select context blocks, then run Ask AI again.",
     );
     return;
   }
@@ -87,11 +87,11 @@ export async function askAI(getSettings) {
     await writeFinalResponse(promptUid, targetUid, framed);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Jesse Roam AI failed", error);
+    console.error("Roam Discover Superintelligence failed", error);
     if (targetUid) {
       await updateBlock(targetUid, `Error: ${message}`).catch(() => {});
     } else {
-      window.alert(`Jesse Roam AI: ${message}`);
+      window.alert(`Roam Discover Superintelligence: ${message}`);
     }
   } finally {
     isRunning = false;

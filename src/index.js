@@ -49,7 +49,7 @@ function inputSetting(id, name, description, placeholder) {
 
 function buildPanelConfig() {
   return {
-    tabTitle: "Jesse Roam AI",
+    tabTitle: "Roam Discover Superintelligence",
     settings: [
       {
         id: "provider",
@@ -118,7 +118,7 @@ async function onload({ extensionAPI: api }) {
 
   extensionAPI.settings.panel.create(buildPanelConfig());
   await extensionAPI.ui.commandPalette.addCommand({
-    label: "Jesse Roam AI: Ask AI",
+    label: "Roam Discover Superintelligence: Ask AI",
     callback: () => {
       void askAI(getAISettings);
     },
