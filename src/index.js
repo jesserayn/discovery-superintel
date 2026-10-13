@@ -12,8 +12,11 @@ const SETTING_DEFAULTS = {
   "grok-model": DEFAULT_MODELS.grok,
   "claude-model": DEFAULT_MODELS.claude,
   "muse-model": DEFAULT_MODELS.muse,
+  "reasoning-effort": "Default",
   "system-prompt": "",
 };
+
+const REASONING_EFFORTS = ["Default", "low", "medium", "high"];
 
 function providerId(label) {
   const entry = Object.entries(PROVIDER_LABELS).find(
@@ -24,12 +27,19 @@ function providerId(label) {
 
 function getAISettings() {
   const provider = providerId(extensionAPI.settings.get("provider"));
+  const effortSetting = extensionAPI.settings.get("reasoning-effort");
+  const reasoningEffort =
+    effortSetting && effortSetting !== "Default" ? effortSetting : null;
   return {
     provider,
     apiKey: extensionAPI.settings.get(`${provider}-api-key`) || "",
     model:
       extensionAPI.settings.get(`${provider}-model`) ||
       DEFAULT_MODELS[provider],
+    // Only Grok and Muse accept reasoning_effort; the Anthropic Messages
+    // API has no equivalent parameter, so it stays unset for Claude and the
+    // header leaves effort off rather than display a value that does nothing.
+    reasoningEffort: provider === "claude" ? null : reasoningEffort,
     systemPrompt: extensionAPI.settings.get("system-prompt") || "",
   };
 }
@@ -97,6 +107,18 @@ function buildPanelConfig() {
         "Model ID sent to the Meta Model API.",
         DEFAULT_MODELS.muse,
       ),
+      {
+        id: "reasoning-effort",
+        name: "Reasoning effort",
+        description:
+          "Sent as reasoning_effort to Grok and Muse. Default omits it and uses the provider default. Not supported by Claude.",
+        action: {
+          type: "select",
+          items: REASONING_EFFORTS,
+          onChange: (value) =>
+            extensionAPI.settings.set("reasoning-effort", value),
+        },
+      },
       inputSetting(
         "system-prompt",
         "System prompt",

@@ -34,7 +34,12 @@ export function getAskContext() {
   const selectedUids = getSelectedBlockUids();
   let promptUid = focusedBlock?.["block-uid"] || "";
 
-  if (!promptUid && selectedUids.length) promptUid = selectedUids[0];
+  // With a multi-block selection there is no focused block. The prompt is
+  // the last selected block (the latest follow-up in a thread); everything
+  // selected above it is context.
+  if (!promptUid && selectedUids.length) {
+    promptUid = selectedUids[selectedUids.length - 1];
+  }
 
   const prompt = getBlockString(promptUid).trim();
   const contextBlocks = selectedUids

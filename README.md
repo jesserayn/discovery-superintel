@@ -18,7 +18,7 @@ API keys are stored in Roam's extension settings. Anyone with access to the grap
 3. Open the command palette and run **Roam and Discover Superintelligence: Ask AI**.
 4. To use a keyboard shortcut, assign one to the command in Roam's Hotkeys settings. The extension intentionally does not claim a default hotkey.
 
-Every answer starts with which provider and model produced it and ends with a continuation note. To go back and forth: write your follow-up in a new block under the answer, focus it, and run Ask AI again, selecting any earlier blocks you want included as context.
+Every answer starts with an attribution block naming the provider and model (plus reasoning effort for Grok and Muse, configurable via the Reasoning effort setting) and ends with a continuation note. The whole answer nests under the attribution block. To go back and forth: write your follow-up in a new block under the answer, focus it, and run Ask AI again, selecting any earlier blocks you want included as context.
 
 ## Development
 

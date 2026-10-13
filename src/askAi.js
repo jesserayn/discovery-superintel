@@ -1,6 +1,11 @@
-import { getAskContext } from "./context.js";
+import { getAskContext } from "./context.mjs";
 import { PROVIDER_LABELS, streamCompletion } from "./providers.js";
-import { buildUserContent, frameResponse, markdownToRoamBlocks } from "./text.mjs";
+import {
+  buildUserContent,
+  CONTINUATION_GUIDANCE,
+  frameResponse,
+  markdownToRoamBlocks,
+} from "./text.mjs";
 
 const STREAM_UPDATE_MS = 250;
 let isRunning = false;
@@ -20,21 +25,22 @@ async function updateBlock(uid, content, heading = 0) {
   });
 }
 
-async function writeFinalResponse(parentUid, targetUid, fullText) {
+async function writeFinalResponse(header, targetUid, fullText) {
+  await updateBlock(targetUid, header);
   const blocks = markdownToRoamBlocks(fullText);
   if (!blocks.length) {
-    await updateBlock(targetUid, "No response received.");
+    await createChildBlock(targetUid, "No response received.");
     return;
   }
 
-  const [first, ...rest] = blocks;
-  await updateBlock(targetUid, first.string, first.heading);
-  const uidByDepth = [targetUid];
-  let previousDepth = first.depth;
+  // Every content block nests under the attribution block, which stays at
+  // depth -1 as the root of this answer.
+  const uidByDepth = [];
+  let previousDepth = -1;
 
-  for (const block of rest) {
+  for (const block of blocks) {
     const depth = Math.min(block.depth, previousDepth + 1);
-    const parent = depth === 0 ? parentUid : uidByDepth[depth - 1] || parentUid;
+    const parent = depth === 0 ? targetUid : uidByDepth[depth - 1] || targetUid;
     const uid = await createChildBlock(parent, block.string, block.heading);
     uidByDepth[depth] = uid;
     uidByDepth.length = depth + 1;
@@ -57,7 +63,15 @@ export async function askAI(getSettings) {
   isRunning = true;
   let targetUid;
   try {
-    targetUid = await createChildBlock(promptUid, "Thinking...");
+    const providerLabel = PROVIDER_LABELS[settings.provider] || settings.provider;
+    const header = frameResponse({
+      providerLabel,
+      model: settings.model,
+      effort: settings.reasoningEffort,
+      body: "",
+    }).split("\n\n")[0];
+
+    targetUid = await createChildBlock(promptUid, header);
     let fullText = "";
     let lastUpdate = 0;
     let pendingUpdate = Promise.resolve();
@@ -66,7 +80,7 @@ export async function askAI(getSettings) {
       const now = Date.now();
       if (now - lastUpdate < STREAM_UPDATE_MS) return;
       lastUpdate = now;
-      const preview = fullText;
+      const preview = `${header}\n\n${fullText}`;
       pendingUpdate = pendingUpdate.then(() => updateBlock(targetUid, preview));
     };
 
@@ -79,12 +93,10 @@ export async function askAI(getSettings) {
     }
 
     await pendingUpdate;
-    const framed = frameResponse({
-      providerLabel: PROVIDER_LABELS[settings.provider] || settings.provider,
-      model: settings.model,
-      body: fullText,
-    });
-    await writeFinalResponse(promptUid, targetUid, framed);
+    // The header already lives on the target block; only the answer body
+    // and guidance are parsed into child blocks.
+    const content = `${fullText.trim()}\n\n---\n${CONTINUATION_GUIDANCE}`;
+    await writeFinalResponse(header, targetUid, content);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("Roam and Discover Superintelligence failed", error);

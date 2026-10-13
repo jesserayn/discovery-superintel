@@ -96,6 +96,18 @@ test("frameResponse leads with the model and ends with guidance", () => {
   );
 });
 
+test("frameResponse includes effort when set", () => {
+  const framed = frameResponse({
+    providerLabel: "Muse",
+    model: "muse-spark-1.3",
+    effort: "medium",
+    body: "Hi.",
+  });
+  assert.ok(
+    framed.startsWith("Answered by Muse (`muse-spark-1.3`, effort `medium`)"),
+  );
+});
+
 test("buildUserContent includes context before the request", () => {
   assert.equal(
     buildUserContent({ prompt: "Summarize this", contextText: "Selected notes" }),

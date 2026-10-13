@@ -53,6 +53,7 @@ async function* streamOpenAICompatible({
   model,
   systemPrompt,
   userContent,
+  reasoningEffort,
 }) {
   const client = new OpenAI({
     apiKey,
@@ -67,6 +68,7 @@ async function* streamOpenAICompatible({
     model,
     messages,
     stream: true,
+    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
   });
 
   for await (const chunk of stream) {
