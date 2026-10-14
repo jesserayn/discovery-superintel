@@ -5,3 +5,6 @@
 - Roam-native response formatting: headings become bold text, list markers are stripped into their own nested blocks, horizontal rules and empty blocks are skipped, and wrapped lines are joined.
 - Response framing: every answer opens by naming the provider and model that produced it and closes with a note explaining how to continue the conversation inline.
 - Reasoning effort setting for Grok and Muse, shown in the attribution line; the whole answer nests under the attribution block, and multi-select continuation prompts from the last selected block.
+- Command-palette commands to switch provider/model and reasoning effort without opening settings.
+- Automatic thread context: a focused follow-up nested in a previous Q&A thread includes the thread above it as context (explicit selection wins).
+- Cancel: abort an in-flight stream from the command palette or the on-screen Cancel button.

@@ -1,0 +1,18 @@
+.rd-ai-cancel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9999;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 3px;
+  background: #c22727;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.rd-ai-cancel:hover {
+  background: #a61e1e;
+}

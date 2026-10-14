@@ -1,5 +1,5 @@
 import pkg from "../package.json";
-import { askAI } from "./askAi.js";
+import { askAI, cancelAskAI } from "./askAi.js";
 import { DEFAULT_MODELS, PROVIDER_LABELS } from "./providers.js";
 
 let extensionAPI;
@@ -17,6 +17,7 @@ const SETTING_DEFAULTS = {
 };
 
 const REASONING_EFFORTS = ["Default", "low", "medium", "high"];
+const EXTENSION_NAME = "Roam and Discover Superintelligence";
 
 function providerId(label) {
   const entry = Object.entries(PROVIDER_LABELS).find(
@@ -129,6 +130,30 @@ function buildPanelConfig() {
   };
 }
 
+// One command per provider and per effort level, so both can be picked
+// straight from the Cmd+P palette. Model IDs in labels are read at load
+// time; reload the extension after editing a model ID in settings.
+async function registerPaletteCommands() {
+  for (const [id, label] of Object.entries(PROVIDER_LABELS)) {
+    const model =
+      extensionAPI.settings.get(`${id}-model`) || DEFAULT_MODELS[id];
+    await extensionAPI.ui.commandPalette.addCommand({
+      label: `${EXTENSION_NAME}: Use ${label} (${model})`,
+      callback: () => {
+        void extensionAPI.settings.set("provider", label);
+      },
+    });
+  }
+  for (const effort of REASONING_EFFORTS) {
+    await extensionAPI.ui.commandPalette.addCommand({
+      label: `${EXTENSION_NAME}: Set effort ${effort}`,
+      callback: () => {
+        void extensionAPI.settings.set("reasoning-effort", effort);
+      },
+    });
+  }
+}
+
 async function onload({ extensionAPI: api }) {
   extensionAPI = api;
 
@@ -140,16 +165,22 @@ async function onload({ extensionAPI: api }) {
 
   extensionAPI.settings.panel.create(buildPanelConfig());
   await extensionAPI.ui.commandPalette.addCommand({
-    label: "Roam and Discover Superintelligence: Ask AI",
+    label: `${EXTENSION_NAME}: Ask AI`,
     callback: () => {
       void askAI(getAISettings);
     },
   });
+  await extensionAPI.ui.commandPalette.addCommand({
+    label: `${EXTENSION_NAME}: Cancel Ask AI`,
+    callback: () => cancelAskAI(),
+  });
+  await registerPaletteCommands();
 
   console.log(`${pkg.name} version ${pkg.version} loaded`);
 }
 
 function onunload() {
+  cancelAskAI();
   console.log(`${pkg.name} version ${pkg.version} unloaded`);
   extensionAPI = undefined;
 }

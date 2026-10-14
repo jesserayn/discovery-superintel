@@ -26,15 +26,24 @@ function requireApiKey(provider, apiKey) {
   );
 }
 
-async function* streamClaude({ apiKey, model, systemPrompt, userContent }) {
+async function* streamClaude({
+  apiKey,
+  model,
+  systemPrompt,
+  userContent,
+  signal,
+}) {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-  const stream = await client.messages.create({
-    model,
-    max_tokens: 4096,
-    ...(systemPrompt ? { system: systemPrompt } : {}),
-    messages: [{ role: "user", content: userContent }],
-    stream: true,
-  });
+  const stream = await client.messages.create(
+    {
+      model,
+      max_tokens: 4096,
+      ...(systemPrompt ? { system: systemPrompt } : {}),
+      messages: [{ role: "user", content: userContent }],
+      stream: true,
+    },
+    { signal },
+  );
 
   for await (const event of stream) {
     if (
@@ -54,6 +63,7 @@ async function* streamOpenAICompatible({
   systemPrompt,
   userContent,
   reasoningEffort,
+  signal,
 }) {
   const client = new OpenAI({
     apiKey,
@@ -64,12 +74,15 @@ async function* streamOpenAICompatible({
     ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
     { role: "user", content: userContent },
   ];
-  const stream = await client.chat.completions.create({
-    model,
-    messages,
-    stream: true,
-    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-  });
+  const stream = await client.chat.completions.create(
+    {
+      model,
+      messages,
+      stream: true,
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+    },
+    { signal },
+  );
 
   for await (const chunk of stream) {
     const text = chunk.choices?.[0]?.delta?.content;

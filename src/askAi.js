@@ -9,6 +9,27 @@ import {
 
 const STREAM_UPDATE_MS = 250;
 let isRunning = false;
+let activeController = null;
+let cancelButton = null;
+
+export function cancelAskAI() {
+  activeController?.abort();
+}
+
+function showCancelButton() {
+  hideCancelButton();
+  cancelButton = document.createElement("button");
+  cancelButton.className = "rd-ai-cancel";
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancel Ask AI";
+  cancelButton.addEventListener("click", cancelAskAI);
+  document.body.appendChild(cancelButton);
+}
+
+function hideCancelButton() {
+  cancelButton?.remove();
+  cancelButton = null;
+}
 
 async function createChildBlock(parentUid, content, heading = 0) {
   const uid = window.roamAlphaAPI.util.generateUID();
@@ -61,17 +82,18 @@ export async function askAI(getSettings) {
   }
 
   isRunning = true;
+  activeController = new AbortController();
+  const providerLabel = PROVIDER_LABELS[settings.provider] || settings.provider;
+  const header = frameResponse({
+    providerLabel,
+    model: settings.model,
+    effort: settings.reasoningEffort,
+    body: "",
+  }).split("\n\n")[0];
   let targetUid;
   try {
-    const providerLabel = PROVIDER_LABELS[settings.provider] || settings.provider;
-    const header = frameResponse({
-      providerLabel,
-      model: settings.model,
-      effort: settings.reasoningEffort,
-      body: "",
-    }).split("\n\n")[0];
-
     targetUid = await createChildBlock(promptUid, header);
+    showCancelButton();
     let fullText = "";
     let lastUpdate = 0;
     let pendingUpdate = Promise.resolve();
@@ -86,6 +108,7 @@ export async function askAI(getSettings) {
 
     for await (const delta of streamCompletion({
       ...settings,
+      signal: activeController.signal,
       userContent: buildUserContent({ prompt, contextText }),
     })) {
       fullText += delta;
@@ -93,19 +116,38 @@ export async function askAI(getSettings) {
     }
 
     await pendingUpdate;
+    // The provider SDKs end their stream iterators silently on abort
+    // rather than throwing, so check the signal explicitly: a cancelled
+    // request gets a cancelled marker instead of a partial answer.
+    if (activeController.signal.aborted) {
+      await updateBlock(targetUid, header);
+      await createChildBlock(targetUid, "Request cancelled.");
+      return;
+    }
     // The header already lives on the target block; only the answer body
     // and guidance are parsed into child blocks.
     const content = `${fullText.trim()}\n\n---\n${CONTINUATION_GUIDANCE}`;
     await writeFinalResponse(header, targetUid, content);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("Roam and Discover Superintelligence failed", error);
-    if (targetUid) {
-      await updateBlock(targetUid, `Error: ${message}`).catch(() => {});
+    if (activeController.signal.aborted) {
+      if (targetUid) {
+        await updateBlock(targetUid, header).catch(() => {});
+        await createChildBlock(targetUid, "Request cancelled.").catch(
+          () => {},
+        );
+      }
     } else {
-      window.alert(`Roam and Discover Superintelligence: ${message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Roam and Discover Superintelligence failed", error);
+      if (targetUid) {
+        await updateBlock(targetUid, `Error: ${message}`).catch(() => {});
+      } else {
+        window.alert(`Roam and Discover Superintelligence: ${message}`);
+      }
     }
   } finally {
+    hideCancelButton();
+    activeController = null;
     isRunning = false;
   }
 }
