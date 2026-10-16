@@ -78,6 +78,7 @@ function tryAddTopbarButton() {
     void askAI(getAISettings);
   });
   topbarButton = mainButton;
+  console.log(`[${EXTENSION_NAME}] top bar button inserted`);
   return true;
 }
 
@@ -98,21 +99,19 @@ function addTopbarButton() {
     });
     topbarObserver.observe(observeTarget, { childList: true, subtree: true });
   }
-  if (!topbarButton) {
-    // Fallback when there is no body to observe yet: keep retrying for
-    // up to 30 seconds (remote extensions can auto-start very early).
-    let attempts = 0;
-    topbarTimer = setInterval(() => {
-      attempts += 1;
-      if (tryAddTopbarButton() || attempts >= 60) {
-        clearInterval(topbarTimer);
-        topbarTimer = null;
-      }
-    }, 500);
-  }
+  // Belt and braces for shipped loads: re-check every second for as long
+  // as the extension is loaded. tryAddTopbarButton is idempotent, so this
+  // costs one getElementById per second once the button is in place.
+  topbarTimer = setInterval(() => {
+    tryAddTopbarButton();
+  }, 500);
+  window.addEventListener("load", tryAddTopbarButton);
+  window.addEventListener("focus", tryAddTopbarButton);
 }
 
 function removeTopbarButton() {
+  window.removeEventListener("load", tryAddTopbarButton);
+  window.removeEventListener("focus", tryAddTopbarButton);
   if (topbarObserver) {
     topbarObserver.disconnect();
     topbarObserver = null;

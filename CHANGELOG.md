@@ -13,4 +13,4 @@
 - The top bar button now also appears when the extension auto-starts before Roam's top bar has rendered (for example, PR-shorthand loads).
 - Markdown tables in answers are converted to one Roam block per row instead of a single pipe-filled block.
 - A crystal-ball ASCII placeholder is shown in the answer block while the response loads.
-- The top bar button now uses Roam's native Blueprint button structure so it renders reliably in shipped (PR-shorthand / Depot) loads.
+- The top bar button now uses Roam's native Blueprint button structure so it renders reliably in shipped (PR-shorthand / Depot) loads; insertion is re-checked continuously and logged to the console.
