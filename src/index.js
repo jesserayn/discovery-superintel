@@ -23,11 +23,12 @@ const EXTENSION_NAME = "Roam and Discover Superintelligence";
 const CRYSTAL_BALL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="10.5" cy="9.5" r="6.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.8 4.9A5.6 5.6 0 0 1 11.6 3.8C8.9 4.9 7.3 6.9 6.9 9.7 6.3 7.8 6.4 6.2 6.8 4.9Z"/><path d="M18 1.2Q18.45 3.75 21 4.2Q18.45 4.65 18 7.2Q17.55 4.65 15 4.2Q17.55 3.75 18 1.2Z"/><path d="M16.6 7.6Q16.86 9.04 18.3 9.3Q16.86 9.56 16.6 11Q16.34 9.56 14.9 9.3Q16.34 9.04 16.6 7.6Z"/><ellipse cx="10.5" cy="17" rx="6.5" ry="1.6"/><path d="M5.2 18.2h10.6l1.4 3.4c.2.6-.2 1.1-.8 1.1H4.6c-.6 0-1-.5-.8-1.1Z"/></svg>`;
 
 let topbarButton = null;
+let topbarTimer = null;
 
-function addTopbarButton() {
-  removeTopbarButton();
+function tryAddTopbarButton() {
   const topbar = document.querySelector(".rm-topbar");
-  if (!topbar) return;
+  if (!topbar) return false;
+  if (topbar.querySelector(".rd-ai-topbar")) return true;
   topbarButton = document.createElement("button");
   topbarButton.type = "button";
   topbarButton.className = "rd-ai-topbar";
@@ -40,11 +41,32 @@ function addTopbarButton() {
     void askAI(getAISettings);
   });
   topbar.appendChild(topbarButton);
+  return true;
+}
+
+function addTopbarButton() {
+  removeTopbarButton();
+  if (tryAddTopbarButton()) return;
+  // Remote (URL / PR-shorthand) extensions auto-start, possibly before the
+  // top bar has rendered. Keep retrying for up to 30 seconds.
+  let attempts = 0;
+  topbarTimer = setInterval(() => {
+    attempts += 1;
+    if (tryAddTopbarButton() || attempts >= 60) {
+      clearInterval(topbarTimer);
+      topbarTimer = null;
+    }
+  }, 500);
 }
 
 function removeTopbarButton() {
+  if (topbarTimer) {
+    clearInterval(topbarTimer);
+    topbarTimer = null;
+  }
   topbarButton?.remove();
   topbarButton = null;
+  document.querySelectorAll(".rd-ai-topbar").forEach((el) => el.remove());
 }
 
 function providerId(label) {
