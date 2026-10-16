@@ -1,8 +1,8 @@
 import { getAskContext } from "./context.mjs";
 import { PROVIDER_LABELS, streamCompletion } from "./providers.js";
 import {
+  buildAnswerContent,
   buildUserContent,
-  CONTINUATION_GUIDANCE,
   frameResponse,
   markdownToRoamBlocks,
 } from "./text.mjs";
@@ -125,8 +125,8 @@ export async function askAI(getSettings) {
       return;
     }
     // The header already lives on the target block; only the answer body
-    // and guidance are parsed into child blocks.
-    const content = `${fullText.trim()}\n\n---\n${CONTINUATION_GUIDANCE}`;
+    // (and the continuation note, when enabled) becomes child blocks.
+    const content = buildAnswerContent(fullText, settings.showContinuationNote);
     await writeFinalResponse(header, targetUid, content);
   } catch (error) {
     if (activeController.signal.aborted) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildAnswerContent,
   buildUserContent,
   CONTINUATION_GUIDANCE,
   frameResponse,
@@ -94,6 +95,14 @@ test("frameResponse leads with the model and ends with guidance", () => {
     blocks.every((block) => block.string.trim() !== "---"),
     "separator rule produces no block",
   );
+});
+
+test("buildAnswerContent omits the continuation note when disabled", () => {
+  assert.equal(buildAnswerContent("Answer body.", false), "Answer body.");
+  assert.ok(
+    buildAnswerContent("Answer body.", true).endsWith(CONTINUATION_GUIDANCE),
+  );
+  assert.ok(buildAnswerContent("Answer body.").endsWith(CONTINUATION_GUIDANCE));
 });
 
 test("frameResponse includes effort when set", () => {

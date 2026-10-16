@@ -14,10 +14,38 @@ const SETTING_DEFAULTS = {
   "muse-model": DEFAULT_MODELS.muse,
   "reasoning-effort": "Default",
   "system-prompt": "",
+  "continuation-note": true,
 };
 
 const REASONING_EFFORTS = ["Default", "low", "medium", "high"];
 const EXTENSION_NAME = "Roam and Discover Superintelligence";
+
+const CRYSTAL_BALL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="10.5" cy="9.5" r="6.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.8 4.9A5.6 5.6 0 0 1 11.6 3.8C8.9 4.9 7.3 6.9 6.9 9.7 6.3 7.8 6.4 6.2 6.8 4.9Z"/><path d="M18 1.2Q18.45 3.75 21 4.2Q18.45 4.65 18 7.2Q17.55 4.65 15 4.2Q17.55 3.75 18 1.2Z"/><path d="M16.6 7.6Q16.86 9.04 18.3 9.3Q16.86 9.56 16.6 11Q16.34 9.56 14.9 9.3Q16.34 9.04 16.6 7.6Z"/><ellipse cx="10.5" cy="17" rx="6.5" ry="1.6"/><path d="M5.2 18.2h10.6l1.4 3.4c.2.6-.2 1.1-.8 1.1H4.6c-.6 0-1-.5-.8-1.1Z"/></svg>`;
+
+let topbarButton = null;
+
+function addTopbarButton() {
+  removeTopbarButton();
+  const topbar = document.querySelector(".rm-topbar");
+  if (!topbar) return;
+  topbarButton = document.createElement("button");
+  topbarButton.type = "button";
+  topbarButton.className = "rd-ai-topbar";
+  topbarButton.title = `${EXTENSION_NAME}: Ask AI`;
+  topbarButton.setAttribute("aria-label", "Ask AI");
+  topbarButton.innerHTML = CRYSTAL_BALL_SVG;
+  // Keep the editor's focused block and text selection when clicked.
+  topbarButton.addEventListener("mousedown", (event) => event.preventDefault());
+  topbarButton.addEventListener("click", () => {
+    void askAI(getAISettings);
+  });
+  topbar.appendChild(topbarButton);
+}
+
+function removeTopbarButton() {
+  topbarButton?.remove();
+  topbarButton = null;
+}
 
 function providerId(label) {
   const entry = Object.entries(PROVIDER_LABELS).find(
@@ -42,6 +70,8 @@ function getAISettings() {
     // header leaves effort off rather than display a value that does nothing.
     reasoningEffort: provider === "claude" ? null : reasoningEffort,
     systemPrompt: extensionAPI.settings.get("system-prompt") || "",
+    showContinuationNote:
+      extensionAPI.settings.get("continuation-note") !== false,
   };
 }
 
@@ -126,6 +156,22 @@ function buildPanelConfig() {
         "Optional instructions sent with every Ask AI request.",
         "You are a helpful research assistant.",
       ),
+      {
+        id: "continuation-note",
+        name: "Continuation note",
+        description:
+          "Append a short note at the end of each answer explaining how to continue the conversation. Turn off once you know the flow.",
+        action: {
+          type: "switch",
+          onChange: (evt) => {
+            const value =
+              typeof evt === "boolean" ? evt : evt?.target?.checked;
+            if (typeof value === "boolean") {
+              void extensionAPI.settings.set("continuation-note", value);
+            }
+          },
+        },
+      },
     ],
   };
 }
@@ -175,12 +221,14 @@ async function onload({ extensionAPI: api }) {
     callback: () => cancelAskAI(),
   });
   await registerPaletteCommands();
+  addTopbarButton();
 
   console.log(`${pkg.name} version ${pkg.version} loaded`);
 }
 
 function onunload() {
   cancelAskAI();
+  removeTopbarButton();
   console.log(`${pkg.name} version ${pkg.version} unloaded`);
   extensionAPI = undefined;
 }

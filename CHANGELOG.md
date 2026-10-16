@@ -8,3 +8,5 @@
 - Command-palette commands to switch provider/model and reasoning effort without opening settings.
 - Automatic thread context: a focused follow-up nested in a previous Q&A thread includes the thread above it as context (explicit selection wins).
 - Cancel: abort an in-flight stream from the command palette or the on-screen Cancel button.
+- The continuation note at the end of each answer can be turned off in settings.
+- Crystal-ball button in the Roam top bar that runs Ask AI.
