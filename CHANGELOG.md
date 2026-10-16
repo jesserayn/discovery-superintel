@@ -14,3 +14,4 @@
 - Markdown tables in answers are converted to one Roam block per row instead of a single pipe-filled block.
 - A crystal-ball ASCII placeholder is shown in the answer block while the response loads.
 - The top bar button now uses Roam's native Blueprint button structure so it renders reliably in shipped (PR-shorthand / Depot) loads; insertion is re-checked continuously and logged to the console.
+- Ask AI button uses a crystal-ball SVG in the same top-bar slot as other icon buttons, and can also sit in the left sidebar. Choose the location in settings.

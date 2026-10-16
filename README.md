@@ -23,7 +23,7 @@ Only the request, its context, and your optional system prompt are sent — to t
 
 1. Focus a block containing your request.
 2. Optionally select other blocks to use as context.
-3. Open the command palette and run **Roam and Discover Superintelligence: Ask AI** — or click the crystal-ball button at the right end of the top bar.
+3. Open the command palette and run **Roam and Discover Superintelligence: Ask AI** — or click the crystal-ball button at the right end of the top bar. The same button also appears under Daily Notes in the left sidebar. Choose top bar, sidebar, or both under **Display button location(s)** in the extension settings.
 4. To use a keyboard shortcut, assign one to the command in Roam's Hotkeys settings. The extension intentionally does not claim a default hotkey.
 
 You can also switch model and effort without opening settings: press Cmd+P and run **Roam and Discover Superintelligence: Use Grok / Claude / Muse** or **Set effort …**.

@@ -1,5 +1,6 @@
 import pkg from "../package.json";
 import { askAI, cancelAskAI } from "./askAi.js";
+import { CRYSTAL_BALL_SVG } from "./crystalBall.mjs";
 import { DEFAULT_MODELS, PROVIDER_LABELS } from "./providers.js";
 
 let extensionAPI;
@@ -15,45 +16,49 @@ const SETTING_DEFAULTS = {
   "reasoning-effort": "Default",
   "system-prompt": "",
   "continuation-note": true,
+  "button-position": "Both topbar and sidebar",
 };
 
 const REASONING_EFFORTS = ["Default", "low", "medium", "high"];
 const EXTENSION_NAME = "Roam and Discover Superintelligence";
 
-const CRYSTAL_BALL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="10.5" cy="9.5" r="6.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.8 4.9A5.6 5.6 0 0 1 11.6 3.8C8.9 4.9 7.3 6.9 6.9 9.7 6.3 7.8 6.4 6.2 6.8 4.9Z"/><path d="M18 1.2Q18.45 3.75 21 4.2Q18.45 4.65 18 7.2Q17.55 4.65 15 4.2Q17.55 3.75 18 1.2Z"/><path d="M16.6 7.6Q16.86 9.04 18.3 9.3Q16.86 9.56 16.6 11Q16.34 9.56 14.9 9.3Q16.34 9.04 16.6 7.6Z"/><ellipse cx="10.5" cy="17" rx="6.5" ry="1.6"/><path d="M5.2 18.2h10.6l1.4 3.4c.2.6-.2 1.1-.8 1.1H4.6c-.6 0-1-.5-.8-1.1Z"/></svg>`;
+// Same DOM as 8bitgentleman/roam-depot-random-block's top-bar button.
+// The icon is a crystal ball SVG instead of Blueprint's random glyph.
+const nameToUse = "roamDiscoverSuperintelligence";
+const topbarIconId = nameToUse + "-icon";
 
-let topbarButton = null;
-let topbarTimer = null;
-let topbarObserver = null;
+const topbarButtonId = nameToUse + "-button-topbar";
+const topBarFlexLeftSpaceId = nameToUse + "-flex-space-left";
+const topBarFlexRightSpaceId = nameToUse + "-flex-space-right";
 
-const TOPBAR_BUTTON_ID = "rd-ai-button-topbar";
-const TOPBAR_ICON_ID = "rd-ai-icon";
-const TOPBAR_SPACER_LEFT_ID = "rd-ai-flex-space-left";
-const TOPBAR_SPACER_RIGHT_ID = "rd-ai-flex-space-right";
+const leftSidebarButtonId = nameToUse + "-button-left-sidebar";
 
-// Mirrors the structure Roam's own top bar buttons use (as in
-// 8bitgentleman/roam-depot-random-block): a Blueprint popover wrapper
-// inserted after the top bar's last child, flanked by spacer divs.
-function tryAddTopbarButton() {
-  if (document.getElementById(TOPBAR_ICON_ID)) {
-    topbarButton = document.getElementById(TOPBAR_BUTTON_ID);
-    return true;
-  }
+let buttonObserver = null;
+let buttonTimer = null;
+let showTopbarButton = true;
+let showSidebarButton = true;
+
+function addButtonTopbar() {
+  if (document.getElementById(topbarIconId)) return;
+
+  // A re-render can remove the icon and leave the spacers behind.
+  // Drop those before choosing the anchor, or the button attaches to a
+  // detached spacer and never shows up in the bar.
+  removeButtonTopbar();
+
   const roamTopbar = document.getElementsByClassName("rm-topbar");
   const nextIconButton = roamTopbar[0]?.lastElementChild;
-  if (!roamTopbar[0] || !nextIconButton) return false;
+  if (!roamTopbar[0] || !nextIconButton) return;
 
   const mainButton = document.createElement("span");
-  mainButton.id = TOPBAR_BUTTON_ID;
-  mainButton.classList.add("bp3-popover-wrapper", "rd-ai-topbar");
-  mainButton.title = `${EXTENSION_NAME}: Ask AI`;
-
+  mainButton.id = topbarButtonId;
+  mainButton.classList.add("bp3-popover-wrapper");
+  mainButton.title = EXTENSION_NAME + ": Ask AI";
   const spanTwo = document.createElement("span");
   spanTwo.classList.add("bp3-popover-target");
   mainButton.appendChild(spanTwo);
-
   const mainIcon = document.createElement("span");
-  mainIcon.id = TOPBAR_ICON_ID;
+  mainIcon.id = topbarIconId;
   mainIcon.classList.add("bp3-button", "bp3-minimal", "bp3-small");
   mainIcon.setAttribute("role", "button");
   mainIcon.setAttribute("aria-label", "Ask AI");
@@ -63,69 +68,139 @@ function tryAddTopbarButton() {
   nextIconButton.insertAdjacentElement("afterend", mainButton);
 
   const leftSpaceDiv = document.createElement("div");
-  leftSpaceDiv.id = TOPBAR_SPACER_LEFT_ID;
+  leftSpaceDiv.id = topBarFlexLeftSpaceId;
   leftSpaceDiv.className = "rm-topbar__spacer-sm";
   mainButton.insertAdjacentElement("beforebegin", leftSpaceDiv);
 
   const rightSpaceDiv = document.createElement("div");
-  rightSpaceDiv.id = TOPBAR_SPACER_RIGHT_ID;
+  rightSpaceDiv.id = topBarFlexRightSpaceId;
   rightSpaceDiv.className = "rm-topbar__spacer-sm";
   mainButton.insertAdjacentElement("afterend", rightSpaceDiv);
 
-  // Keep the editor's focused block and text selection when clicked.
-  mainButton.addEventListener("mousedown", (event) => event.preventDefault());
+  // Ask AI reads the focused block. preventDefault keeps that focus,
+  // which a navigation button like Random Block does not need.
+  mainButton.addEventListener("mousedown", (evt) => evt.preventDefault());
   mainButton.addEventListener("click", () => {
     void askAI(getAISettings);
   });
-  topbarButton = mainButton;
   console.log(`[${EXTENSION_NAME}] top bar button inserted`);
-  return true;
 }
 
-function addTopbarButton() {
+function removeButtonTopbar() {
+  let domIdsToRemove = [topbarButtonId, topBarFlexLeftSpaceId, topBarFlexRightSpaceId];
+  domIdsToRemove.forEach((domId) => {
+    let elem = document.getElementById(domId);
+    if (elem) {
+      elem.remove();
+    }
+  });
+}
+
+function addButtonLeftSidebar() {
+  // Same left-sidebar log button as roam-depot-random-block, under Daily Notes.
+  if (document.getElementById(leftSidebarButtonId)) return;
+  const sidebarcontent = document.querySelector(
+    "#app > div.roam-body > div.roam-app > div.roam-sidebar-container.noselect > div",
+  );
+  const sidebartoprow = sidebarcontent?.childNodes[1];
+  if (!sidebarcontent || !sidebartoprow) return;
+
+  const divButton = document.createElement("div");
+  divButton.classList.add("log-button");
+  divButton.innerHTML = "Ask AI";
+  divButton.id = leftSidebarButtonId;
+  const spanIcon = document.createElement("span");
+  spanIcon.classList.add("bp3-icon", "icon");
+  spanIcon.innerHTML = CRYSTAL_BALL_SVG;
+  divButton.prepend(spanIcon);
+  sidebartoprow.parentNode.insertBefore(divButton, sidebartoprow.nextSibling);
+  divButton.addEventListener("mousedown", (evt) => evt.preventDefault());
+  divButton.onclick = () => {
+    void askAI(getAISettings);
+  };
+}
+
+function removeButtonLeftSidebar() {
+  let domIdsToRemove = [leftSidebarButtonId];
+  domIdsToRemove.forEach((domId) => {
+    let elem = document.getElementById(domId);
+    if (elem) {
+      elem.remove();
+    }
+  });
+}
+
+function buttonPosition() {
+  return (
+    extensionAPI?.settings.get("button-position") || "Both topbar and sidebar"
+  );
+}
+
+function addAndRemoveButtonsAsRequired() {
+  let value = buttonPosition();
+  showTopbarButton = value !== "Only left sidebar";
+  showSidebarButton = value !== "Only topbar";
+  if (showSidebarButton) addButtonLeftSidebar();
+  else removeButtonLeftSidebar();
+  if (showTopbarButton) addButtonTopbar();
+  else removeButtonTopbar();
+}
+
+// Roam re-renders .rm-topbar after auto-start and drops nodes it did not
+// create. Keep putting the button back for as long as the extension is loaded.
+let ensureQueued = false;
+
+function ensureButtons() {
+  if (!extensionAPI) return;
   try {
-    removeTopbarButton();
-    tryAddTopbarButton();
-  } catch {
-    // Never let button placement break the rest of onload.
+    addAndRemoveButtonsAsRequired();
+  } catch (error) {
+    console.error(
+      `[${EXTENSION_NAME}] could not place the Ask AI button`,
+      error,
+    );
   }
-  // Roam re-renders its top bar after auto-start, wiping foreign DOM
-  // nodes. Watch for the button disappearing (or the top bar appearing)
-  // and put it back. This must run even when the first attempt succeeds.
+}
+
+function queueEnsureButtons() {
+  if (ensureQueued) return;
+  ensureQueued = true;
+  setTimeout(() => {
+    ensureQueued = false;
+    ensureButtons();
+  }, 200);
+}
+
+function buttonsMissing() {
+  if (showTopbarButton && !document.getElementById(topbarIconId)) return true;
+  if (showSidebarButton && !document.getElementById(leftSidebarButtonId)) return true;
+  return false;
+}
+
+function startButtonWatcher() {
+  stopButtonWatcher();
+  ensureButtons();
   const observeTarget = document.body || document.documentElement;
   if (typeof MutationObserver !== "undefined" && observeTarget) {
-    topbarObserver = new MutationObserver(() => {
-      tryAddTopbarButton();
+    buttonObserver = new MutationObserver(() => {
+      if (buttonsMissing()) queueEnsureButtons();
     });
-    topbarObserver.observe(observeTarget, { childList: true, subtree: true });
+    buttonObserver.observe(observeTarget, { childList: true, subtree: true });
   }
-  // Belt and braces for shipped loads: re-check every second for as long
-  // as the extension is loaded. tryAddTopbarButton is idempotent, so this
-  // costs one getElementById per second once the button is in place.
-  topbarTimer = setInterval(() => {
-    tryAddTopbarButton();
-  }, 500);
-  window.addEventListener("load", tryAddTopbarButton);
-  window.addEventListener("focus", tryAddTopbarButton);
+  buttonTimer = setInterval(() => {
+    if (buttonsMissing()) ensureButtons();
+  }, 1000);
 }
 
-function removeTopbarButton() {
-  window.removeEventListener("load", tryAddTopbarButton);
-  window.removeEventListener("focus", tryAddTopbarButton);
-  if (topbarObserver) {
-    topbarObserver.disconnect();
-    topbarObserver = null;
+function stopButtonWatcher() {
+  if (buttonObserver) {
+    buttonObserver.disconnect();
+    buttonObserver = null;
   }
-  if (topbarTimer) {
-    clearInterval(topbarTimer);
-    topbarTimer = null;
+  if (buttonTimer) {
+    clearInterval(buttonTimer);
+    buttonTimer = null;
   }
-  topbarButton?.remove();
-  topbarButton = null;
-  for (const id of [TOPBAR_BUTTON_ID, TOPBAR_SPACER_LEFT_ID, TOPBAR_SPACER_RIGHT_ID]) {
-    document.getElementById(id)?.remove();
-  }
-  document.querySelectorAll(".rd-ai-topbar").forEach((el) => el.remove());
 }
 
 function providerId(label) {
@@ -173,6 +248,20 @@ function buildPanelConfig() {
   return {
     tabTitle: "Roam and Discover Superintelligence",
     settings: [
+      {
+        id: "button-position",
+        name: "Display button location(s)",
+        description: "Where do you want to display the Ask AI button?",
+        action: {
+          type: "select",
+          items: ["Both topbar and sidebar", "Only left sidebar", "Only topbar"],
+          onChange: () => {
+            setTimeout(() => {
+              ensureButtons();
+            }, 100);
+          },
+        },
+      },
       {
         id: "provider",
         name: "AI provider",
@@ -281,9 +370,6 @@ async function registerPaletteCommands() {
 
 async function onload({ extensionAPI: api }) {
   extensionAPI = api;
-  // First, so the button appears even if a later settings/panel/API call
-  // hangs or fails during remote auto-start.
-  addTopbarButton();
 
   for (const [id, value] of Object.entries(SETTING_DEFAULTS)) {
     if (extensionAPI.settings.get(id) == null) {
@@ -292,6 +378,7 @@ async function onload({ extensionAPI: api }) {
   }
 
   extensionAPI.settings.panel.create(buildPanelConfig());
+  startButtonWatcher();
   await extensionAPI.ui.commandPalette.addCommand({
     label: `${EXTENSION_NAME}: Ask AI`,
     callback: () => {
@@ -309,7 +396,9 @@ async function onload({ extensionAPI: api }) {
 
 function onunload() {
   cancelAskAI();
-  removeTopbarButton();
+  stopButtonWatcher();
+  removeButtonTopbar();
+  removeButtonLeftSidebar();
   console.log(`${pkg.name} version ${pkg.version} unloaded`);
   extensionAPI = undefined;
 }
