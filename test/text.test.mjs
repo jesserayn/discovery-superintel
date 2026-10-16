@@ -60,6 +60,39 @@ test("markdownToRoamBlocks converts headings, bullets, and rules", () => {
   assert.ok(blocks.every((block) => !block.string.startsWith("* ")));
 });
 
+test("markdownToRoamBlocks converts tables to one block per row", () => {
+  const blocks = markdownToRoamBlocks(
+    [
+      "**B. Mechanical / Electrical**",
+      "",
+      "| ID | Requirement |",
+      "|---|---|",
+      "| MEC-01 | Footprint <=4x4m, height <=4.2m. |",
+      "| ELE-01 | 4kW servo + regenerative brake. |",
+    ].join("\n"),
+  );
+  assert.deepEqual(
+    blocks.map((b) => b.string),
+    [
+      "**B. Mechanical / Electrical**",
+      "**MEC-01** — Footprint <=4x4m, height <=4.2m.",
+      "**ELE-01** — 4kW servo + regenerative brake.",
+    ],
+  );
+  assert.ok(blocks.every((b) => !b.string.includes("|---|")));
+});
+
+test("markdownToRoamBlocks labels extra table columns by header", () => {
+  const blocks = markdownToRoamBlocks(
+    ["| ID | Load | Noise |", "|---|---|---|", "| MEC-02 | 120kg | <65 dBA |"].join(
+      "\n",
+    ),
+  );
+  assert.deepEqual(blocks.map((b) => b.string), [
+    "**MEC-02** — Load: 120kg; Noise: <65 dBA",
+  ]);
+});
+
 test("markdownToRoamBlocks keeps real headings when enabled", () => {
   const blocks = markdownToRoamBlocks("## Section Title\nBody text.", {
     headings: true,

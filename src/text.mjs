@@ -49,7 +49,16 @@ export function markdownToRoamBlocks(text, options = {}) {
     return node;
   };
 
-  for (const rawLine of lines) {
+  const parseTableRow = (line) =>
+    line
+      .trim()
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split(/(?<!\\)\|/)
+      .map((cell) => cell.replace(/\\\|/g, "|").trim());
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const rawLine = lines[lineIndex];
     const trimmed = rawLine.trim();
 
     if (inCodeBlock) {
@@ -73,6 +82,46 @@ export function markdownToRoamBlocks(text, options = {}) {
     if (RULE_RE.test(trimmed)) {
       flushParagraph();
       continue;
+    }
+
+    // Markdown table: consecutive pipe lines become one block per row,
+    // "**ID** — value" (extra columns labelled by their header).
+    if (trimmed.startsWith("|")) {
+      const run = [];
+      let end = lineIndex;
+      while (end < lines.length && lines[end].trim().startsWith("|")) {
+        run.push(lines[end]);
+        end += 1;
+      }
+      const rows = run.map(parseTableRow);
+      const isSeparator = (cells) =>
+        cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c));
+      if (rows.length >= 2 && isSeparator(rows[1] || [])) {
+        const headers = rows[0];
+        const twoCol = headers.length === 2;
+        flushParagraph();
+        lastListDepth = baseDepth();
+        for (const cells of rows.slice(2)) {
+          if (!cells.some(Boolean)) continue;
+          const [first, ...rest] = cells;
+          const parts = rest
+            .map((value, i) => {
+              if (!value) return "";
+              const label = headers[i + 1];
+              return !twoCol && label ? `${label}: ${value}` : value;
+            })
+            .filter(Boolean);
+          push({
+            string: parts.length ? `**${first}** — ${parts.join("; ")}` : first,
+            heading: 0,
+            depth: baseDepth(),
+            isList: true,
+          });
+        }
+        lineIndex = end - 1;
+        continue;
+      }
+      // Not a table (no separator row): fall through as plain text.
     }
 
     const indent = Math.floor((rawLine.match(/^[ \t]*/)[0].replace(/\t/g, "  ").length || 0) / 2);

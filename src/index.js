@@ -26,28 +26,68 @@ let topbarButton = null;
 let topbarTimer = null;
 let topbarObserver = null;
 
+const TOPBAR_BUTTON_ID = "rd-ai-button-topbar";
+const TOPBAR_ICON_ID = "rd-ai-icon";
+const TOPBAR_SPACER_LEFT_ID = "rd-ai-flex-space-left";
+const TOPBAR_SPACER_RIGHT_ID = "rd-ai-flex-space-right";
+
+// Mirrors the structure Roam's own top bar buttons use (as in
+// 8bitgentleman/roam-depot-random-block): a Blueprint popover wrapper
+// inserted after the top bar's last child, flanked by spacer divs.
 function tryAddTopbarButton() {
-  const topbar = document.querySelector(".rm-topbar");
-  if (!topbar) return false;
-  if (topbar.querySelector(".rd-ai-topbar")) return true;
-  topbarButton = document.createElement("button");
-  topbarButton.type = "button";
-  topbarButton.className = "rd-ai-topbar";
-  topbarButton.title = `${EXTENSION_NAME}: Ask AI`;
-  topbarButton.setAttribute("aria-label", "Ask AI");
-  topbarButton.innerHTML = CRYSTAL_BALL_SVG;
+  if (document.getElementById(TOPBAR_ICON_ID)) {
+    topbarButton = document.getElementById(TOPBAR_BUTTON_ID);
+    return true;
+  }
+  const roamTopbar = document.getElementsByClassName("rm-topbar");
+  const nextIconButton = roamTopbar[0]?.lastElementChild;
+  if (!roamTopbar[0] || !nextIconButton) return false;
+
+  const mainButton = document.createElement("span");
+  mainButton.id = TOPBAR_BUTTON_ID;
+  mainButton.classList.add("bp3-popover-wrapper", "rd-ai-topbar");
+  mainButton.title = `${EXTENSION_NAME}: Ask AI`;
+
+  const spanTwo = document.createElement("span");
+  spanTwo.classList.add("bp3-popover-target");
+  mainButton.appendChild(spanTwo);
+
+  const mainIcon = document.createElement("span");
+  mainIcon.id = TOPBAR_ICON_ID;
+  mainIcon.classList.add("bp3-button", "bp3-minimal", "bp3-small");
+  mainIcon.setAttribute("role", "button");
+  mainIcon.setAttribute("aria-label", "Ask AI");
+  mainIcon.innerHTML = CRYSTAL_BALL_SVG;
+  spanTwo.appendChild(mainIcon);
+
+  nextIconButton.insertAdjacentElement("afterend", mainButton);
+
+  const leftSpaceDiv = document.createElement("div");
+  leftSpaceDiv.id = TOPBAR_SPACER_LEFT_ID;
+  leftSpaceDiv.className = "rm-topbar__spacer-sm";
+  mainButton.insertAdjacentElement("beforebegin", leftSpaceDiv);
+
+  const rightSpaceDiv = document.createElement("div");
+  rightSpaceDiv.id = TOPBAR_SPACER_RIGHT_ID;
+  rightSpaceDiv.className = "rm-topbar__spacer-sm";
+  mainButton.insertAdjacentElement("afterend", rightSpaceDiv);
+
   // Keep the editor's focused block and text selection when clicked.
-  topbarButton.addEventListener("mousedown", (event) => event.preventDefault());
-  topbarButton.addEventListener("click", () => {
+  mainButton.addEventListener("mousedown", (event) => event.preventDefault());
+  mainButton.addEventListener("click", () => {
     void askAI(getAISettings);
   });
-  topbar.appendChild(topbarButton);
+  topbarButton = mainButton;
   return true;
 }
 
 function addTopbarButton() {
-  removeTopbarButton();
-  tryAddTopbarButton();
+  try {
+    removeTopbarButton();
+    tryAddTopbarButton();
+  } catch {
+    // Never let button placement break the rest of onload.
+  }
   // Roam re-renders its top bar after auto-start, wiping foreign DOM
   // nodes. Watch for the button disappearing (or the top bar appearing)
   // and put it back. This must run even when the first attempt succeeds.
@@ -83,6 +123,9 @@ function removeTopbarButton() {
   }
   topbarButton?.remove();
   topbarButton = null;
+  for (const id of [TOPBAR_BUTTON_ID, TOPBAR_SPACER_LEFT_ID, TOPBAR_SPACER_RIGHT_ID]) {
+    document.getElementById(id)?.remove();
+  }
   document.querySelectorAll(".rd-ai-topbar").forEach((el) => el.remove());
 }
 
@@ -239,6 +282,9 @@ async function registerPaletteCommands() {
 
 async function onload({ extensionAPI: api }) {
   extensionAPI = api;
+  // First, so the button appears even if a later settings/panel/API call
+  // hangs or fails during remote auto-start.
+  addTopbarButton();
 
   for (const [id, value] of Object.entries(SETTING_DEFAULTS)) {
     if (extensionAPI.settings.get(id) == null) {
@@ -258,7 +304,6 @@ async function onload({ extensionAPI: api }) {
     callback: () => cancelAskAI(),
   });
   await registerPaletteCommands();
-  addTopbarButton();
 
   console.log(`${pkg.name} version ${pkg.version} loaded`);
 }

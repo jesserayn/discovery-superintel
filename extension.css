@@ -1,21 +1,9 @@
-.rd-ai-topbar {
+#rd-ai-icon {
+  color: #e8eaed;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-left: 4px;
-  padding: 0;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
-  color: #e8eaed;
   cursor: pointer;
-  flex: none;
-}
-
-.rd-ai-topbar:hover {
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .rd-ai-cancel {
