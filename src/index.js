@@ -24,6 +24,7 @@ const CRYSTAL_BALL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="
 
 let topbarButton = null;
 let topbarTimer = null;
+let topbarObserver = null;
 
 function tryAddTopbarButton() {
   const topbar = document.querySelector(".rm-topbar");
@@ -46,20 +47,36 @@ function tryAddTopbarButton() {
 
 function addTopbarButton() {
   removeTopbarButton();
-  if (tryAddTopbarButton()) return;
-  // Remote (URL / PR-shorthand) extensions auto-start, possibly before the
-  // top bar has rendered. Keep retrying for up to 30 seconds.
-  let attempts = 0;
-  topbarTimer = setInterval(() => {
-    attempts += 1;
-    if (tryAddTopbarButton() || attempts >= 60) {
-      clearInterval(topbarTimer);
-      topbarTimer = null;
-    }
-  }, 500);
+  tryAddTopbarButton();
+  // Roam re-renders its top bar after auto-start, wiping foreign DOM
+  // nodes. Watch for the button disappearing (or the top bar appearing)
+  // and put it back. This must run even when the first attempt succeeds.
+  const observeTarget = document.body || document.documentElement;
+  if (typeof MutationObserver !== "undefined" && observeTarget) {
+    topbarObserver = new MutationObserver(() => {
+      tryAddTopbarButton();
+    });
+    topbarObserver.observe(observeTarget, { childList: true, subtree: true });
+  }
+  if (!topbarButton) {
+    // Fallback when there is no body to observe yet: keep retrying for
+    // up to 30 seconds (remote extensions can auto-start very early).
+    let attempts = 0;
+    topbarTimer = setInterval(() => {
+      attempts += 1;
+      if (tryAddTopbarButton() || attempts >= 60) {
+        clearInterval(topbarTimer);
+        topbarTimer = null;
+      }
+    }, 500);
+  }
 }
 
 function removeTopbarButton() {
+  if (topbarObserver) {
+    topbarObserver.disconnect();
+    topbarObserver = null;
+  }
   if (topbarTimer) {
     clearInterval(topbarTimer);
     topbarTimer = null;
