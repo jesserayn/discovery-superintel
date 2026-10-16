@@ -10,3 +10,4 @@
 - Cancel: abort an in-flight stream from the command palette or the on-screen Cancel button.
 - The continuation note at the end of each answer can be turned off in settings.
 - Crystal-ball button in the Roam top bar that runs Ask AI.
+- The top bar button now also appears when the extension auto-starts before Roam's top bar has rendered (for example, PR-shorthand loads).
