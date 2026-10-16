@@ -216,14 +216,12 @@ function buildPanelConfig() {
 }
 
 // One command per provider and per effort level, so both can be picked
-// straight from the Cmd+P palette. Model IDs in labels are read at load
-// time; reload the extension after editing a model ID in settings.
+// straight from the Cmd+P palette. Labels use the provider name only;
+// the model version for each provider lives in the settings panel.
 async function registerPaletteCommands() {
-  for (const [id, label] of Object.entries(PROVIDER_LABELS)) {
-    const model =
-      extensionAPI.settings.get(`${id}-model`) || DEFAULT_MODELS[id];
+  for (const [, label] of Object.entries(PROVIDER_LABELS)) {
     await extensionAPI.ui.commandPalette.addCommand({
-      label: `${EXTENSION_NAME}: Use ${label} (${model})`,
+      label: `${EXTENSION_NAME}: Use ${label}`,
       callback: () => {
         void extensionAPI.settings.set("provider", label);
       },
