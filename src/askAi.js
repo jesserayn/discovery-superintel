@@ -9,18 +9,7 @@ import {
 
 const STREAM_UPDATE_MS = 250;
 
-// Shown in the answer block until the first token arrives.
-const LOADING_ART = [
-  "```",
-  "      .-~~~~-.",
-  "    .'   *    '.",
-  "   /  *   ___   \\",
-  "  |      /   \\   |",
-  "   \\    \\___/   /",
-  "    '.______.'",
-  "  __/________\\__",
-  "```",
-].join("\n");
+
 let isRunning = false;
 let activeController = null;
 let cancelButton = null;
@@ -107,9 +96,6 @@ export async function askAI(getSettings) {
   try {
     targetUid = await createChildBlock(promptUid, header);
     showCancelButton();
-    await updateBlock(targetUid, `${header}\n\n${LOADING_ART}`).catch(
-      () => {},
-    );
     let fullText = "";
     let lastUpdate = 0;
     let pendingUpdate = Promise.resolve();

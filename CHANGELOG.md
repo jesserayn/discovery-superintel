@@ -1,6 +1,7 @@
 ## 1.0.0 - 2026-10-12
 ### Added
 - Renamed to Discovery Superintel.
+- The system prompt is edited in a multi-line text field in the tool settings, pre-filled with the current default prompt.
 - Ask AI command: uses the focused block as the request and selected blocks as context, streaming the answer into child blocks.
 - Providers: Grok (xAI), Claude (Anthropic), and Muse (Meta Model API), selectable with per-provider API keys, models, and an optional system prompt in the Roam settings panel.
 - Roam-native response formatting: headings become bold text, list markers are stripped into their own nested blocks, horizontal rules and empty blocks are skipped, and wrapped lines are joined.
@@ -13,6 +14,5 @@
 - Crystal-ball button in the Roam top bar that runs Ask AI.
 - The top bar button now also appears when the extension auto-starts before Roam's top bar has rendered (for example, PR-shorthand loads).
 - Markdown tables in answers are converted to one Roam block per row instead of a single pipe-filled block.
-- A crystal-ball ASCII placeholder is shown in the answer block while the response loads.
 - The top bar button now uses Roam's native Blueprint button structure so it renders reliably in shipped (PR-shorthand / Depot) loads; insertion is re-checked continuously and logged to the console.
 - Ask AI button uses a crystal-ball SVG in the same top-bar slot as other icon buttons, and can also sit in the left sidebar. Choose the location in settings.

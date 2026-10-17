@@ -1,9 +1,13 @@
+import React from "react";
+
 import pkg from "../package.json";
 import { askAI, cancelAskAI } from "./askAi.js";
 import { CRYSTAL_BALL_SVG } from "./crystalBall.mjs";
 import { DEFAULT_MODELS, PROVIDER_LABELS } from "./providers.js";
 
 let extensionAPI;
+
+const DEFAULT_SYSTEM_PROMPT = "You are a helpful research assistant.";
 
 const SETTING_DEFAULTS = {
   provider: PROVIDER_LABELS.grok,
@@ -14,7 +18,7 @@ const SETTING_DEFAULTS = {
   "claude-model": DEFAULT_MODELS.claude,
   "muse-model": DEFAULT_MODELS.muse,
   "reasoning-effort": "Default",
-  "system-prompt": "",
+  "system-prompt": DEFAULT_SYSTEM_PROMPT,
   "continuation-note": true,
   "button-position": "Both topbar and sidebar",
 };
@@ -231,6 +235,28 @@ function getAISettings() {
   };
 }
 
+// Multi-line system prompt editor for the settings panel. The built-in
+// panel has no textarea action, so this uses a custom reactComponent
+// action and persists through extensionAPI.settings like the predefined
+// actions do.
+function SystemPromptField() {
+  const [value, setValue] = React.useState(
+    () => extensionAPI.settings.get("system-prompt") || "",
+  );
+  return React.createElement("textarea", {
+    className: "bp3-input",
+    rows: 6,
+    style: { width: "100%", minHeight: 90 },
+    placeholder: "You are a helpful research assistant.",
+    value,
+    onChange: (evt) => {
+      const next = evt.target.value;
+      setValue(next);
+      void extensionAPI.settings.set("system-prompt", next);
+    },
+  });
+}
+
 function inputSetting(id, name, description, placeholder) {
   return {
     id,
@@ -320,12 +346,12 @@ function buildPanelConfig() {
             extensionAPI.settings.set("reasoning-effort", value),
         },
       },
-      inputSetting(
-        "system-prompt",
-        "System prompt",
-        "Optional instructions sent with every Ask AI request.",
-        "You are a helpful research assistant.",
-      ),
+      {
+        id: "system-prompt",
+        name: "System prompt",
+        description: "Optional instructions sent with every Ask AI request.",
+        action: { type: "reactComponent", component: SystemPromptField },
+      },
       {
         id: "continuation-note",
         name: "Continuation note",
@@ -375,6 +401,11 @@ async function onload({ extensionAPI: api }) {
     if (extensionAPI.settings.get(id) == null) {
       await extensionAPI.settings.set(id, value);
     }
+  }
+  // Migrate installs saved under the old empty-string default so the
+  // field shows the current prompt instead of a blank box.
+  if (extensionAPI.settings.get("system-prompt") === "") {
+    await extensionAPI.settings.set("system-prompt", DEFAULT_SYSTEM_PROMPT);
   }
 
   extensionAPI.settings.panel.create(buildPanelConfig());

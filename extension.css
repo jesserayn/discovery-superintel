@@ -1,19 +1,25 @@
 #discoverySuperintel-icon {
-  color: #5c7080;
+  /* Same color/brightness as Roam's other top bar icons (Blueprint dark). */
+  color: #a7b6c2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  min-width: 30px;
-  min-height: 30px;
-  padding: 5px 7px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px 3px;
 }
 
-.bp3-dark #discoverySuperintel-icon {
-  color: #a7b6c2;
+#discoverySuperintel-icon:hover {
+  color: #ced9e0;
 }
 
-#discoverySuperintel-icon svg,
+#discoverySuperintel-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
 #discoverySuperintel-button-left-sidebar .bp3-icon svg {
   width: 16px;
   height: 16px;
