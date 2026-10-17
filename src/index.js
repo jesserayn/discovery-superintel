@@ -20,11 +20,11 @@ const SETTING_DEFAULTS = {
 };
 
 const REASONING_EFFORTS = ["Default", "low", "medium", "high"];
-const EXTENSION_NAME = "Roam and Discover Superintelligence";
+const EXTENSION_NAME = "Discovery Superintel";
 
 // Same DOM as 8bitgentleman/roam-depot-random-block's top-bar button.
 // The icon is a crystal ball SVG instead of Blueprint's random glyph.
-const nameToUse = "roamDiscoverSuperintelligence";
+const nameToUse = "discoverySuperintel";
 const topbarIconId = nameToUse + "-icon";
 
 const topbarButtonId = nameToUse + "-button-topbar";
@@ -246,7 +246,7 @@ function inputSetting(id, name, description, placeholder) {
 
 function buildPanelConfig() {
   return {
-    tabTitle: "Roam and Discover Superintelligence",
+    tabTitle: "Discovery Superintel",
     settings: [
       {
         id: "button-position",

@@ -191,7 +191,7 @@ export function buildUserContent({ prompt, contextText }) {
 }
 
 export const CONTINUATION_GUIDANCE =
-  "**Continuing the conversation:** write your follow-up in a new block under this answer, focus it, and run Roam and Discover Superintelligence: Ask AI again. Select any earlier blocks to include them as context.";
+  "**Continuing the conversation:** write your follow-up in a new block under this answer, focus it, and run Discovery Superintel: Ask AI again. Select any earlier blocks to include them as context.";
 
 export function buildAnswerContent(body, showContinuationNote = true) {
   const text = String(body || "").trim();

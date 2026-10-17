@@ -89,7 +89,7 @@ export async function askAI(getSettings) {
 
   if (!promptUid || !prompt) {
     window.alert(
-      "Roam and Discover Superintelligence: focus a block containing your request, optionally select context blocks, then run Ask AI again.",
+      "Discovery Superintel: focus a block containing your request, optionally select context blocks, then run Ask AI again.",
     );
     return;
   }
@@ -154,11 +154,11 @@ export async function askAI(getSettings) {
       }
     } else {
       const message = error instanceof Error ? error.message : String(error);
-      console.error("Roam and Discover Superintelligence failed", error);
+      console.error("Discovery Superintel failed", error);
       if (targetUid) {
         await updateBlock(targetUid, `Error: ${message}`).catch(() => {});
       } else {
-        window.alert(`Roam and Discover Superintelligence: ${message}`);
+        window.alert(`Discovery Superintel: ${message}`);
       }
     }
   } finally {
