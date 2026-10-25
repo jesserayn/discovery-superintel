@@ -2,12 +2,24 @@ import { getAskContext } from "./context.mjs";
 import { PROVIDER_LABELS, streamCompletion } from "./providers.js";
 import {
   buildAnswerContent,
-  buildUserContent,
+  buildMessages,
   frameResponse,
   markdownToRoamBlocks,
 } from "./text.mjs";
 
 const STREAM_UPDATE_MS = 250;
+
+export const ALREADY_RUNNING_MESSAGE =
+  "Discovery Superintel: Ask AI is already running. Wait for it to finish, or cancel it first.";
+
+function buildContextLabel(contextSource, contextBlockCount) {
+  if (contextSource === "selection" || contextSource === "thread") {
+    const noun = contextBlockCount === 1 ? "block" : "blocks";
+    return `context: ${contextSource}, ${contextBlockCount} ${noun}`;
+  }
+  if (contextSource === "highlight") return "context: highlighted text";
+  return null;
+}
 
 
 let isRunning = false;
@@ -72,9 +84,19 @@ async function writeFinalResponse(header, targetUid, fullText) {
 }
 
 export async function askAI(getSettings) {
-  if (isRunning) return;
+  if (isRunning) {
+    window.alert(ALREADY_RUNNING_MESSAGE);
+    return;
+  }
   const settings = getSettings();
-  const { promptUid, prompt, contextText } = getAskContext();
+  const {
+    promptUid,
+    prompt,
+    contextText,
+    contextEntries,
+    contextSource,
+    contextBlockCount,
+  } = getAskContext();
 
   if (!promptUid || !prompt) {
     window.alert(
@@ -91,6 +113,7 @@ export async function askAI(getSettings) {
     model: settings.model,
     effort: settings.reasoningEffort,
     body: "",
+    contextLabel: buildContextLabel(contextSource, contextBlockCount),
   }).split("\n\n")[0];
   let targetUid;
   try {
@@ -111,7 +134,7 @@ export async function askAI(getSettings) {
     for await (const delta of streamCompletion({
       ...settings,
       signal: activeController.signal,
-      userContent: buildUserContent({ prompt, contextText }),
+      messages: buildMessages({ prompt, contextText, contextEntries }),
     })) {
       fullText += delta;
       queuePreviewUpdate();

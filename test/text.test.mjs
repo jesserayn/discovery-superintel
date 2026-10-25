@@ -3,10 +3,13 @@ import test from "node:test";
 
 import {
   buildAnswerContent,
+  buildMessages,
   buildUserContent,
   CONTINUATION_GUIDANCE,
   frameResponse,
+  isAnswerHeader,
   markdownToRoamBlocks,
+  normalizeMessages,
   splitParagraphs,
 } from "../src/text.mjs";
 
@@ -102,6 +105,96 @@ test("markdownToRoamBlocks keeps real headings when enabled", () => {
   assert.equal(blocks[1].depth, 1);
 });
 
+test("markdownToRoamBlocks converts task lists to Roam TODO/DONE blocks", () => {
+  const blocks = markdownToRoamBlocks(
+    [
+      "- [ ] Buy milk",
+      "- [x] Done thing",
+      "- [X] Also done",
+      "* [ ] Star task",
+      "1. [ ] Numbered task",
+      "- Regular bullet",
+    ].join("\n"),
+  );
+  assert.deepEqual(
+    blocks.map((block) => block.string),
+    [
+      "{{[[TODO]]}} Buy milk",
+      "{{[[DONE]]}} Done thing",
+      "{{[[DONE]]}} Also done",
+      "{{[[TODO]]}} Star task",
+      "{{[[TODO]]}} Numbered task",
+      "Regular bullet",
+    ],
+  );
+});
+
+test("markdownToRoamBlocks keeps nested task depth", () => {
+  const blocks = markdownToRoamBlocks("- [ ] Parent\n  - [ ] Child");
+  assert.deepEqual(
+    blocks.map((block) => block.string),
+    ["{{[[TODO]]}} Parent", "{{[[TODO]]}} Child"],
+  );
+  assert.ok(blocks[1].depth > blocks[0].depth);
+});
+
+test("markdownToRoamBlocks leaves Roam TODO/DONE and non-tasks untouched", () => {
+  const blocks = markdownToRoamBlocks(
+    [
+      "- {{[[TODO]]}} Already a todo",
+      "- {{[[DONE]]}} Already done",
+      "Remember to [ ] check mid-sentence.",
+      "",
+      "```",
+      "- [ ] Inside code",
+      "```",
+    ].join("\n"),
+  );
+  const strings = blocks.map((block) => block.string);
+  assert.ok(strings.includes("{{[[TODO]]}} Already a todo"));
+  assert.ok(strings.includes("{{[[DONE]]}} Already done"));
+  assert.ok(!strings.some((s) => s.includes("{{[[TODO]]}} {{[[TODO]]}}")));
+  assert.ok(strings.includes("Remember to [ ] check mid-sentence."));
+  assert.ok(strings.some((s) => s.includes("- [ ] Inside code")));
+  assert.ok(!strings.some((s) => s === "{{[[TODO]]}} Inside code"));
+});
+
+test("markdownToRoamBlocks converts [[to-do]] page refs to Roam TODO blocks", () => {
+  const blocks = markdownToRoamBlocks(
+    [
+      "- [[to-do]] Get a Nevada driver's license",
+      "- [[TODO]] Register my van in Nevada",
+      "- [[todo]] Pay back taxes",
+      "- {{[[to-do]]}} Find a tax person",
+      "- {{todo}} Call the DMV",
+      "- to-do: Move business to Nevada",
+      "- [[done]] Already finished",
+      "- Move [[Infinite Ways]] from California to Nevada",
+    ].join("\n"),
+  );
+  assert.deepEqual(
+    blocks.map((block) => block.string),
+    [
+      "{{[[TODO]]}} Get a Nevada driver's license",
+      "{{[[TODO]]}} Register my van in Nevada",
+      "{{[[TODO]]}} Pay back taxes",
+      "{{[[TODO]]}} Find a tax person",
+      "{{[[TODO]]}} Call the DMV",
+      "{{[[TODO]]}} Move business to Nevada",
+      "{{[[DONE]]}} Already finished",
+      "Move [[Infinite Ways]] from California to Nevada",
+    ],
+  );
+  assert.ok(blocks.every((block) => !block.string.startsWith("[[to-do]]")));
+});
+
+test("markdownToRoamBlocks converts a bare task paragraph", () => {
+  assert.deepEqual(
+    markdownToRoamBlocks("[ ] Standalone task").map((block) => block.string),
+    ["{{[[TODO]]}} Standalone task"],
+  );
+});
+
 test("markdownToRoamBlocks joins wrapped lines and strips dash bullets", () => {
   assert.deepEqual(
     markdownToRoamBlocks("First line\nsecond line\n\n- one\n- two").map(
@@ -159,4 +252,62 @@ test("buildUserContent includes context before the request", () => {
 
 test("buildUserContent returns the prompt when there is no context", () => {
   assert.equal(buildUserContent({ prompt: "Hello", contextText: "" }), "Hello");
+});
+
+test("frameResponse appends the context label to the header", () => {
+  const framed = frameResponse({
+    providerLabel: "Grok",
+    model: "grok-4.7",
+    body: "Hi.",
+    contextLabel: "context: thread, 4 blocks",
+  });
+  assert.ok(
+    framed.startsWith("Answered by Grok (`grok-4.7`) · context: thread, 4 blocks"),
+  );
+});
+
+test("isAnswerHeader recognizes headers with effort and context suffixes", () => {
+  assert.ok(isAnswerHeader("Answered by Grok (`grok-4.7`)"));
+  assert.ok(isAnswerHeader("Answered by Muse (`m`, effort `high`) · context: thread, 2 blocks"));
+  assert.ok(!isAnswerHeader("What is Kwangmyong?"));
+});
+
+test("buildMessages turns a prior Q&A thread into alternating turns", () => {
+  const messages = buildMessages({
+    prompt: "And how is it built?",
+    contextText: "",
+    contextEntries: [
+      { text: "What is Kwangmyong?", role: "user" },
+      { text: "Answered by Grok (`grok-4.7`)", role: "assistant" },
+      { text: "A closed intranet.", role: "assistant" },
+      { text: CONTINUATION_GUIDANCE, role: "assistant" },
+    ],
+  });
+  assert.deepEqual(messages, [
+    { role: "user", content: "What is Kwangmyong?" },
+    { role: "assistant", content: "A closed intranet." },
+    { role: "user", content: "And how is it built?" },
+  ]);
+});
+
+test("buildMessages falls back to one user message without a thread", () => {
+  assert.deepEqual(
+    buildMessages({ prompt: "Summarize", contextText: "Notes", contextEntries: [] }),
+    [{ role: "user", content: "Context:\nNotes\n\nRequest:\nSummarize" }],
+  );
+  assert.deepEqual(buildMessages({ prompt: "Hello", contextText: "" }), [
+    { role: "user", content: "Hello" },
+  ]);
+});
+
+test("normalizeMessages merges same-role turns and starts with user", () => {
+  const messages = normalizeMessages([
+    { role: "assistant", content: "orphan" },
+    { role: "user", content: "one" },
+    { role: "user", content: "two" },
+    { role: "assistant", content: "  " },
+  ]);
+  assert.equal(messages[0].role, "user");
+  assert.ok(messages.some((m) => m.content.includes("one") && m.content.includes("two")));
+  assert.ok(messages.every((m) => m.content.trim()));
 });

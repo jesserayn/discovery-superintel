@@ -1,3 +1,12 @@
+## Unreleased
+### Added
+- Provider: OpenRouter, selectable with its own API key and model in the Roam settings panel (default model `anthropic/claude-sonnet-4.5`). It uses OpenRouter's OpenAI-compatible API, so any OpenRouter model ID in `provider/model` form works, and the reasoning effort setting applies to it. Switch to it from the command palette with **Discovery Superintel: Use OpenRouter**.
+- Context fidelity: selected blocks now include their descendants, block references and embeds are resolved to the text they point to, and thread context sends the ancestor path plus prior content only (branches after the follow-up are no longer sent). The attribution block notes the context source and block count.
+- Multi-turn threads: a follow-up inside an earlier Q&A thread is sent as alternating user/assistant messages instead of one flat context blob. All providers share an 8,192-token output limit, and a truncated answer ends with a truncation notice.
+### Fixed
+- Running Ask AI while a request is already streaming now shows an "already running" notice instead of silently doing nothing.
+- To-dos in answers now render as Roam checkboxes: Markdown task items (`- [ ] …`, `- [x] …`) and model-emitted `[[to-do]]`, `{{[[to-do]]}}`, and `{{todo}}` prefixes are converted to `{{[[TODO]]}}` / `{{[[DONE]]}}` blocks instead of landing as literal text or a `[[to-do]]` page reference. Existing Roam TODO/DONE blocks, other page references such as `[[Infinite Ways]]`, mid-sentence brackets, and code blocks are left untouched.
+
 ## 1.0.0 - 2026-10-12
 ### Added
 - Renamed to Discovery Superintel.

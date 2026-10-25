@@ -11,17 +11,30 @@ const BLOCKS = {
   body00bod: "A closed intranet.",
   cont00con: "Continuing the conversation: ...",
   fol000fol: "How is an intranet created?",
+  sel000par: "Parent note",
+  sel000kid: "Child detail",
+  ref000tgt: "Referenced insight",
+  ref000hol: "See ((ref000tgt)) for details",
+  emb000hol: "{{[[embed]]: ((ref000tgt))}}",
+  cyc000aaa: "Alpha ((cyc000bbb))",
+  cyc000bbb: "Beta ((cyc000aaa))",
+  aft000aft: "Later unrelated branch",
+  aft200aft: "After follow-up sibling",
 };
 const PARENTS = {
   ans000ans: "q0q0q0q0q",
   body00bod: "ans000ans",
   cont00con: "ans000ans",
   fol000fol: "cont00con",
+  sel000kid: "sel000par",
+  aft000aft: "ans000ans",
+  aft200aft: "cont00con",
 };
 const CHILDREN = {
   q0q0q0q0q: ["ans000ans"],
-  ans000ans: ["body00bod", "cont00con"],
-  cont00con: ["fol000fol"],
+  ans000ans: ["body00bod", "cont00con", "aft000aft"],
+  cont00con: ["fol000fol", "aft200aft"],
+  sel000par: ["sel000kid"],
 };
 let focusedUid = null;
 let selectedUids = [];
@@ -85,6 +98,61 @@ test("explicit selection wins over thread context", () => {
   selectedUids = ["aaa111aaa"];
   const ctx = getAskContext();
   assert.equal(ctx.contextText, "Earlier answer block");
+});
+
+test("selected blocks include their children as context", () => {
+  focusedUid = "ccc333ccc";
+  selectedUids = ["sel000par"];
+  const ctx = getAskContext();
+  assert.ok(ctx.contextText.includes("Parent note"));
+  assert.ok(ctx.contextText.includes("Child detail"));
+  assert.equal(ctx.contextSource, "selection");
+  assert.equal(ctx.contextBlockCount, 2);
+});
+
+test("block references are resolved to the referenced text", () => {
+  focusedUid = "ccc333ccc";
+  selectedUids = ["ref000hol"];
+  const ctx = getAskContext();
+  assert.ok(ctx.contextText.includes("Referenced insight"));
+  assert.ok(!ctx.contextText.includes("((ref000tgt))"));
+});
+
+test("embeds are resolved to the embedded block text", () => {
+  focusedUid = "ccc333ccc";
+  selectedUids = ["emb000hol"];
+  const ctx = getAskContext();
+  assert.ok(ctx.contextText.includes("Referenced insight"));
+  assert.ok(!ctx.contextText.includes("embed"));
+});
+
+test("circular block references terminate", () => {
+  focusedUid = "ccc333ccc";
+  selectedUids = ["cyc000aaa"];
+  const ctx = getAskContext();
+  assert.ok(ctx.contextText.includes("Alpha"));
+  assert.ok(ctx.contextText.includes("Beta"));
+});
+
+test("thread context excludes branches after the follow-up path", () => {
+  focusedUid = "fol000fol";
+  selectedUids = [];
+  const ctx = getAskContext();
+  assert.equal(ctx.contextSource, "thread");
+  assert.ok(ctx.contextBlockCount >= 3);
+  assert.ok(!ctx.contextText.includes("Later unrelated branch"));
+  assert.ok(!ctx.contextText.includes("After follow-up sibling"));
+});
+
+test("thread entries label prior answers as assistant turns", () => {
+  focusedUid = "fol000fol";
+  selectedUids = [];
+  const ctx = getAskContext();
+  const byText = Object.fromEntries(
+    ctx.contextEntries.map((e) => [e.text, e.role]),
+  );
+  assert.equal(byText["What is Kwangmyong?"], "user");
+  assert.equal(byText["A closed intranet."], "assistant");
 });
 
 test("focused block stays the prompt when one exists", () => {

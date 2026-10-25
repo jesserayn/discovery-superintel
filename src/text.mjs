@@ -9,6 +9,40 @@ export function splitParagraphs(text) {
 const HEADING_RE = /^(#{1,6})\s+(.+)$/;
 const LIST_RE = /^(\s*)(?:[-*+•]|\d+[.)]|[a-zA-Z][.)])\s+(.+)$/;
 const RULE_RE = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
+const TASK_RE = /^\[( |x|X)\]\s+(.+)$/;
+const ROAM_TASK_RE = /^\{\{\[\[(?:TODO|DONE)\]\]\}\}/;
+
+// Roam renders a block starting {{[[TODO]]}} / {{[[DONE]]}} as a checkbox.
+// Models also emit [ ] / [x], [[to-do]], and {{todo}}, which would otherwise
+// land as literal text or a [[to-do]] page reference instead of a checkbox.
+const BRACKET_TASK_RE =
+  /^(?:\{\{\[\[|\[\[)(to[-\s_]?do|done)\]\](?:\}\})?\s*[:\-]?\s+(.+)$/i;
+const CURLY_TASK_RE = /^\{\{(to[-\s_]?do|done)\}\}\s*[:\-]?\s+(.+)$/i;
+const PLAIN_TASK_RE = /^to[-\s]do\s*[:\-]\s+(.+)$/i;
+
+function taskPrefix(word, label) {
+  const done = word.toLowerCase().replace(/[-\s_]/g, "") === "done";
+  return `{{[[${done ? "DONE" : "TODO"}]]}} ${label.trim()}`;
+}
+
+function roamTaskString(text, fromList = false) {
+  const trimmed = String(text || "").trim();
+  if (ROAM_TASK_RE.test(trimmed)) return trimmed;
+  const checkbox = trimmed.match(TASK_RE);
+  if (checkbox) {
+    const label = checkbox[2].trim();
+    if (label) {
+      return `{{[[${checkbox[1].toLowerCase() === "x" ? "DONE" : "TODO"}]]}} ${label}`;
+    }
+  }
+  const bracket = trimmed.match(BRACKET_TASK_RE) || trimmed.match(CURLY_TASK_RE);
+  if (bracket) return taskPrefix(bracket[1], bracket[2]);
+  if (fromList) {
+    const plain = trimmed.match(PLAIN_TASK_RE);
+    if (plain) return taskPrefix("todo", plain[1]);
+  }
+  return trimmed;
+}
 
 function boldify(line) {
   const trimmed = String(line || "").trim();
@@ -154,7 +188,7 @@ export function markdownToRoamBlocks(text, options = {}) {
       }
       if (paragraph) depth = paragraph.depth + 1;
       lastListDepth = depth;
-      push({ string: listMatch[2].trim(), heading: 0, depth, isList: true });
+      push({ string: roamTaskString(listMatch[2], true), heading: 0, depth, isList: true });
       continue;
     }
 
@@ -163,7 +197,7 @@ export function markdownToRoamBlocks(text, options = {}) {
       paragraph.string += ` ${content}`;
     } else {
       paragraph = {
-        string: content,
+        string: roamTaskString(content),
         heading: 0,
         depth: baseDepth() + indent,
         isList: false,
@@ -190,6 +224,80 @@ export function buildUserContent({ prompt, contextText }) {
   return `Context:\n${context}\n\nRequest:\n${question}`;
 }
 
+const ANSWER_HEADER_RE =
+  /^Answered by .+ \(`[^`]+`(?:, effort `[^`]+`)?\)(?: · context: .+)?$/;
+
+export function isAnswerHeader(text) {
+  return ANSWER_HEADER_RE.test(String(text || "").trim());
+}
+
+function isContinuationGuidance(text) {
+  return String(text || "")
+    .trim()
+    .startsWith("**Continuing the conversation:**");
+}
+
+// Providers need alternating user/assistant turns starting with user
+// (Anthropic rejects anything else). Merge same-role neighbours, drop
+// empty turns, and park a leading assistant turn behind a user lead-in.
+export function normalizeMessages(messages) {
+  const normalized = [];
+  for (const message of messages || []) {
+    const content = String(message?.content || "").trim();
+    if (!content) continue;
+    const role = message.role === "assistant" ? "assistant" : "user";
+    const last = normalized[normalized.length - 1];
+    if (last && last.role === role) {
+      last.content = `${last.content}\n\n${content}`;
+    } else {
+      normalized.push({ role, content });
+    }
+  }
+  if (normalized.length && normalized[0].role === "assistant") {
+    normalized.unshift({
+      role: "user",
+      content: "Continue from the following conversation.",
+    });
+  }
+  return normalized;
+}
+
+// Build the chat messages for a request. When the context entries contain
+// a prior answer (thread follow-up, or a selected Q&A subtree), replay
+// them as alternating turns so the model can tell its own answers from
+// the user's notes. Otherwise keep the single Context/Request message.
+export function buildMessages({ prompt, contextText, contextEntries }) {
+  const entries = (contextEntries || []).filter(
+    (entry) => entry && String(entry.text || "").trim(),
+  );
+  const hasPriorAnswer = entries.some(
+    (entry) => entry.role === "assistant" || isAnswerHeader(entry.text),
+  );
+  if (!hasPriorAnswer) {
+    return [
+      { role: "user", content: buildUserContent({ prompt, contextText }) },
+    ];
+  }
+
+  const turns = [];
+  let role = "user";
+  for (const entry of entries) {
+    const text = String(entry.text).trim();
+    if (isAnswerHeader(text)) {
+      role = "assistant";
+      continue;
+    }
+    if (isContinuationGuidance(text)) continue;
+    const entryRole =
+      entry.role === "assistant" || entry.role === "user" ? entry.role : role;
+    role = entryRole;
+    turns.push({ role: entryRole, content: text });
+  }
+  const question = String(prompt || "").trim();
+  if (question) turns.push({ role: "user", content: question });
+  return normalizeMessages(turns);
+}
+
 export const CONTINUATION_GUIDANCE =
   "**Continuing the conversation:** write your follow-up in a new block under this answer, focus it, and run Discovery Superintel: Ask AI again. Select any earlier blocks to include them as context.";
 
@@ -199,9 +307,16 @@ export function buildAnswerContent(body, showContinuationNote = true) {
   return `${text}\n\n---\n${CONTINUATION_GUIDANCE}`;
 }
 
-export function frameResponse({ providerLabel, model, effort = null, body }) {
-  const header = effort
+export function frameResponse({
+  providerLabel,
+  model,
+  effort = null,
+  body,
+  contextLabel = null,
+}) {
+  const base = effort
     ? `Answered by ${providerLabel} (\`${model}\`, effort \`${effort}\`)`
     : `Answered by ${providerLabel} (\`${model}\`)`;
+  const header = contextLabel ? `${base} · ${contextLabel}` : base;
   return `${header}\n\n${String(body || "").trim()}\n\n---\n${CONTINUATION_GUIDANCE}`;
 }
